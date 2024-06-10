@@ -1,12 +1,8 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Main where
 
 import System.Random (randomRIO)
 import Control.Monad (unless)
 import System.IO (hSetEncoding, utf8, stdout, stdin)
-import qualified Data.Text as T
-import qualified Data.Text.IO as TIO
 
 data Feedback = Igen | Majdnem | Nem deriving (Show, Eq)
 data GameState = GameState { secretWord :: String, guesses :: [(String, [(Char, Feedback)])], maxAttempts :: Int }
@@ -66,15 +62,12 @@ getUserInput = do
   getLine
 
 checkGuess :: String -> String -> [(Char, Feedback)]
-checkGuess secret guess = map check (T.zip (toText secret) (toText guess))
+checkGuess secret guess = map check (zip secret guess)
   where
     check (s, g)
       | s == g    = (g, Igen)
       | g `elem` secret = (g, Majdnem)
       | otherwise = (g, Nem)
-
-myZip :: T.Text -> T.Text -> [(Char, Char)]
-myZip t1 t2 = zip (T.unpack t1) (T.unpack t2)
 
 updateGameState :: GameState -> String -> [(Char, Feedback)] -> GameState
 updateGameState gameState guess feedback =
