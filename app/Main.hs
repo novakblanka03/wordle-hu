@@ -10,6 +10,14 @@ data Feedback = Igen | Majdnem | Nem deriving (Show, Eq)
 data GameState = GameState { secretWord :: T.Text, guesses :: [(T.Text, [(T.Text, Feedback)])], maxAttempts :: Int }
 data Difficulty = Kezdo | Kozepes | Halado | Profi | Nehez deriving (Show, Eq)
 
+-- igy kellene a feedback megjelenjen
+feedback_show :: Feedback -> Char
+feedback_show feedback =
+  case feedback of
+    Nem -> '🟥' 
+    Igen -> '🟩' 
+    Majdnem -> '🟨' 
+
 main :: IO ()
 main = do
   hSetEncoding stdout utf8
@@ -17,7 +25,7 @@ main = do
   difficulty <- selectDifficulty
   animals <- loadWords (difficultyFile difficulty)
   gameState <- initGame animals
-  gameLoop gameState
+  gameLoop gameState animals
 
 selectDifficulty :: IO Difficulty
 selectDifficulty = do
@@ -59,7 +67,7 @@ initGame animals = do
 
 getUserInput :: IO T.Text
 getUserInput = do
-  putStrLn "Írja be a tippjét: "
+  putStrLn "\nÍrd be a tipped: "
   T.pack <$> getLine
 
 checkGuess :: T.Text -> T.Text -> [(T.Text, Feedback)]
@@ -69,6 +77,9 @@ checkGuess secret guess = map check (T.zip secret (T.map toUpper guess))
       | s == g = (T.singleton g, Igen)
       | g `T.elem` secret = (T.singleton g, Majdnem)
       | otherwise = (T.singleton g, Nem)
+
+validGuess :: T.Text -> [T.Text] -> Bool
+validGuess guess animals = (T.map toUpper guess) `elem` animals
 
 updateGameState :: GameState -> T.Text -> [(T.Text, Feedback)] -> GameState
 updateGameState gameState guess feedback =
@@ -81,14 +92,19 @@ displayState gameState = do
   where
     printGuess (guess, feedback) = putStrLn (T.unpack guess ++ " " ++ show feedback)
 
-gameLoop :: GameState -> IO ()
-gameLoop gameState = do
+gameLoop :: GameState -> [T.Text] -> IO ()
+gameLoop gameState animals = do
   guess <- getUserInput
-  let feedback = checkGuess (secretWord gameState) guess
-  let newGameState = updateGameState gameState guess feedback
-  displayState newGameState
-  if all ((== Igen) . snd) feedback
-    then putStrLn "Gratulálok! Kitaláltad a szót!"
-    else if length (guesses newGameState) >= maxAttempts newGameState
-      then putStrLn "Elfogyott a próbálkozások száma! Vége a játéknak."
-      else gameLoop newGameState
+  if not (validGuess guess animals)
+    then do
+      putStrLn "Érvénytelen tipp! Kérjük próbáld újra."
+      gameLoop gameState animals
+    else do
+      let feedback = checkGuess (secretWord gameState) guess
+      let newGameState = updateGameState gameState guess feedback
+      displayState newGameState
+      if all ((== Igen) . snd) feedback
+        then putStrLn "Gratulálok! Kitaláltad a szót!"
+        else if length (guesses newGameState) >= maxAttempts newGameState
+          then putStrLn "Elfogyott a próbálkozások száma! Vége a játéknak."
+          else gameLoop newGameState animals
