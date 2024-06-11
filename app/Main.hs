@@ -1,11 +1,14 @@
 module Main where
 
 import System.Random (randomRIO)
-import Control.Monad (unless)
 import System.IO (hSetEncoding, utf8, stdout, stdin)
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
+import Data.Char (toUpper)
 
 data Feedback = Igen | Majdnem | Nem deriving (Show, Eq)
-data GameState = GameState { secretWord :: String, guesses :: [(String, [(Char, Feedback)])], maxAttempts :: Int }
+data GameState = GameState { secretWord :: T.Text, guesses :: [(T.Text, [(T.Text, Feedback)])], maxAttempts :: Int }
+data Difficulty = Kezdo | Kozepes | Halado | Profi | Nehez deriving (Show, Eq)
 
 main :: IO ()
 main = do
@@ -15,8 +18,6 @@ main = do
   animals <- loadWords (difficultyFile difficulty)
   gameState <- initGame animals
   gameLoop gameState
-
-data Difficulty = Kezdo | Kozepes | Halado | Profi | Nehez deriving (Show, Eq)
 
 selectDifficulty :: IO Difficulty
 selectDifficulty = do
@@ -44,32 +45,32 @@ difficultyFile Halado = "./src/halado.txt"
 difficultyFile Profi  = "./src/profi.txt"
 difficultyFile Nehez  = "./src/nehez.txt"
 
-loadWords :: FilePath -> IO [String]
+loadWords :: FilePath -> IO [T.Text]
 loadWords path = do
-  content <- readFile path
-  return (lines content)
+  content <- TIO.readFile path
+  return (T.lines content)
 
-initGame :: [String] -> IO GameState
+initGame :: [T.Text] -> IO GameState
 initGame animals = do
   index <- randomRIO (0, length animals - 1)
   let secret = animals !! index
-  putStrLn secret
+  putStrLn (T.unpack secret)
   return $ GameState secret [] 6
 
-getUserInput :: IO String
+getUserInput :: IO T.Text
 getUserInput = do
   putStrLn "Írja be a tippjét: "
-  getLine
+  T.pack <$> getLine
 
-checkGuess :: String -> String -> [(Char, Feedback)]
-checkGuess secret guess = map check (zip secret guess)
+checkGuess :: T.Text -> T.Text -> [(T.Text, Feedback)]
+checkGuess secret guess = map check (T.zip secret (T.map toUpper guess))
   where
     check (s, g)
-      | s == g    = (g, Igen)
-      | g `elem` secret = (g, Majdnem)
-      | otherwise = (g, Nem)
+      | s == g = (T.singleton g, Igen)
+      | g `T.elem` secret = (T.singleton g, Majdnem)
+      | otherwise = (T.singleton g, Nem)
 
-updateGameState :: GameState -> String -> [(Char, Feedback)] -> GameState
+updateGameState :: GameState -> T.Text -> [(T.Text, Feedback)] -> GameState
 updateGameState gameState guess feedback =
   gameState { guesses = (guess, feedback) : guesses gameState }
 
@@ -78,7 +79,7 @@ displayState gameState = do
   putStrLn "Eddigi tippek:"
   mapM_ printGuess (guesses gameState)
   where
-    printGuess (guess, feedback) = putStrLn (guess ++ " " ++ show feedback)
+    printGuess (guess, feedback) = putStrLn (T.unpack guess ++ " " ++ show feedback)
 
 gameLoop :: GameState -> IO ()
 gameLoop gameState = do
