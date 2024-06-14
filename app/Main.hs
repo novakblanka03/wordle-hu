@@ -3,7 +3,7 @@ module Main (main) where
 import Lib (selectDifficulty, difficultyFile, loadWords, initGame, gameLoop)
 import System.IO (hSetEncoding, utf8, stdout, stdin)
 
-
+-- initializing the game
 main :: IO ()
 main = do
   hSetEncoding stdout utf8
